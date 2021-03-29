@@ -1,0 +1,333 @@
+---
+title: "EDA"
+---
+
+The data is only from 2018, however I am not confident enough in web-scrapping
+to grab new data so I will use the 2018 set.
+
+```{r directory}
+knitr::opts_knit$set(root.dir = getwd())
+```
+
+```{r packages, message=FALSE, warning=FALSE}
+source("packages.R")
+for (i in seq_along(packages))
+  library(packages[i], character.only = T)
+rm(packages)
+```
+
+```{r data}
+arabica_data <- fread("coffee-quality-database/data/arabica_data_cleaned.csv")
+robusta_data <- fread("coffee-quality-database/data/robusta_data_cleaned.csv")
+```
+
+Having a look at the difference between arabica and robusta names
+```{r names}
+list(
+  arabica_robusta = setdiff(names(arabica_data), names(robusta_data)),
+  robust_arabica = setdiff(names(robusta_data), names(arabica_data))
+)
+```
+
+Going to assume the following mapping
+```{r names mapping}
+setnames(
+  robusta_data,
+  old = setdiff(names(robusta_data), names(arabica_data)),
+  new = c(
+    "Aroma",
+    "Acidity",
+    "Sweetness",
+    "Body",
+    "Uniformity"
+  )
+)
+```
+
+Create species column and combine datasets
+```{r species and combine}
+combined_data <- rbind(robusta_data, arabica_data)
+```
+
+Look at summary data
+```{r summary}
+summary(combined_data)
+```
+
+V1 appears to be row number, can remove.
+The differences in column names Camel.Case and snake_case annoys me 
+
+#### Columns that seem important from the README.md in coffee-quality-database and from the classification challenge document.
+* Aroma
+* Flavor
+* Aftertaste
+* Acidity
+* Body
+* Balance
+* Uniformity
+* Cup Cleanliness
+* Sweetness
+* Moisture
+* Defects
+* Country of Origin
+* Region
+* Farm
+
+#### Employee profiles
+* Subu:     {indian, sweet, not too strong of flavour}
+* Marcio:   {brazillian, regional, farm}
+* Rafa:     same as Marcio
+* James:    {soft, no armora, no flavour, very sweet}
+
+```{r find Marcios profile from data}
+combined_data[Farm.Name == "fazenda kaquend"]
+```
+
+https://soloespresso.net/coffee-cupping/
+Used this website to understand the differences in coffee measures
+
+* Marcio:     {Sweetness = 10, Flavor = 8.5, Acidity = 8, Body = 8, Aroma = 8.5, Balance = 8, Aftertaste = 8}
+* Subu:       {Sweetness = 10, Flavor < 8}
+* James:      {Aroma = 0, Flavor = 0, Sweetness = 10}
+
+```{r summary of important variables}
+summary(combined_data[, .(Sweetness, Flavor, Acidity, Body, Aroma, Balance, Aftertaste)])
+```
+
+They are all numeric variables except for country of origin, can use kmeans
+or krpototypes if country is important
+
+```{r countries}
+sort(unique(combined_data$Country.of.Origin))
+```
+
+* Marcio:     {Sweetness = 10, Flavor = 8, Acidity = 8, Body = 8, Aroma = 8, Balance = 8, Aftertaste = 8, Country = 'Brazil'}
+* Rafa:       {Sweetness = 10, Flavor = 8, Acidity = 8, Body = 8, Aroma = 8, Balance = 8, Aftertaste = 8, Country = 'Brazil'}
+* Subu:       {Sweetness = 10, Flavor < 8,                                                                Country = 'India'}
+* James:      {Sweetness = 10, Flavor = 0,                        Aroma = 0,                              Country = 'United States (Hawaii)'}
+
+Assuming the coffee James and Subu drink coffee local to their home countries
+
+
+```{r Flavor = 0}
+combined_data[Flavor <= 0.1]
+```
+There's one data point full of 0's, so we will omit it as it's awful coffee
+```{r}
+combined_data <- combined_data[Flavor > 0.1]
+```
+
+```{r factor country}
+# Create factor column
+combined_data[, Country.of.Origin := as.factor(Country.of.Origin)]
+```
+
+```{r k-prototypes clustering, message=FALSE}
+# Lambda test
+lambda <- lambdaest(
+  x = combined_data[,
+                       .(
+                         Sweetness,
+                         Flavor,
+                         Acidity,
+                         Body,
+                         Aroma,
+                         Balance,
+                         Aftertaste,
+                         Country.of.Origin
+                       )]
+)
+
+# K-prototypes clustering, find the best value of k
+clusters <- validation_kproto(
+  method = 'silhouette',
+  data = combined_data[,
+                       .(
+                         Sweetness,
+                         Flavor,
+                         Acidity,
+                         Body,
+                         Aroma,
+                         Balance,
+                         Aftertaste,
+                         Country.of.Origin
+                       )],
+  k = 2:floor(
+    sqrt(
+      nrow(
+        combined_data
+        )
+      )
+    ),
+  lambda = lambda,
+  verbose = F
+)
+clusters
+```
+
+3 clusters is optimal, however there are far too many coffees in these clusters
+for Marcio to purchase.
+
+```{r higher K}
+# K-prototypes clustering, find the best value of k
+clusters <- validation_kproto(
+  method = 'silhouette',
+  data = combined_data[,
+                       .(
+                         Sweetness,
+                         Flavor,
+                         Acidity,
+                         Body,
+                         Aroma,
+                         Balance,
+                         Aftertaste,
+                         Country.of.Origin
+                       )],
+  k = 5:floor(
+    sqrt(
+      nrow(
+        combined_data
+        )
+      )
+    ),
+  lambda = lambda,
+  verbose = F
+)
+clusters
+```
+Still too many coffees, however there are now separate country modal clusters
+for Hawaii and India
+
+```{r try very high k}
+# K-prototypes clustering, find the best value of k
+clusters <- validation_kproto(
+  method = 'silhouette',
+  data = combined_data[,
+                       .(
+                         Sweetness,
+                         Flavor,
+                         Acidity,
+                         Body,
+                         Aroma,
+                         Balance,
+                         Aftertaste,
+                         Country.of.Origin
+                       )],
+  k = 35:floor(
+    sqrt(
+      nrow(
+        combined_data
+        )
+      )
+    ),
+  lambda = lambda,
+  verbose = F
+)
+clusters
+```
+
+Data is more diverse now, zoom in on countries
+```{r}
+# Create cluster index
+cluster_centres <- copy(clusters$kp_obj$centers)
+cluster_centres[, cluster := 1:36]
+cluster_centres[Country.of.Origin %in% c("India", "United States (Hawaii)", "Brazil")]
+```
+Find the coffees which relate to these clusters, I'm going to take the
+sweetest Hawaiian one (31)
+```{r coffees}
+combined_data[, cluster := clusters$kp_obj$cluster]
+
+chosen_clusters <- combined_data[cluster %in% c(21, 27, 31)]
+```
+
+Take a look at these coffees
+```{r chosen_clusters view}
+chosen_clusters
+```
+
+Remove all coffees with defects
+```{r}
+clean_clusters <- chosen_clusters[Category.One.Defects == 0 &
+                                    Category.Two.Defects == 0]
+```
+
+
+Filter countries
+```{r filter countries}
+country_clusters <- clean_clusters[Country.of.Origin %in% c(
+  "United States (Hawaii)",
+  "Brazil",
+  "India"
+)]
+```
+
+```{r number of coffees}
+table(country_clusters$Country.of.Origin %>% as.character)
+```
+check Marcio's farm
+```{r farm check}
+country_clusters[Farm.Name == "fazenda kaquend"]
+```
+
+It seem's like Marcio's farm has been omitted in the process, but he probably
+doesn't need to be recommended his favourite coffee.
+
+Now to find coffees from the list which match the profiles by creating a 
+'taste distance'
+
+* Marcio:     {Sweetness = 10, Flavor = 8, Acidity = 8, Body = 8, Aroma = 8, Balance = 8, Aftertaste = 8, Country = 'Brazil'}
+* Rafa:       {Sweetness = 10, Flavor = 8, Acidity = 8, Body = 8, Aroma = 8, Balance = 8, Aftertaste = 8, Country = 'Brazil'}
+* Subu:       {Sweetness = 10, Flavor < 8,                                                                Country = 'India'}
+* James:      {Sweetness = 10, Flavor = 0,                        Aroma = 0,                              Country = 'United States (Hawaii)'}
+
+I don't think Marcio needs to buy heaps of different coffee, maybe 1 bag per person
+
+Marcio and Rafa, 2 bags
+```{r Marcio and Rafa}
+m_r <- copy(country_clusters[Country.of.Origin == "Brazil"])
+m_r[, taste_distance := 
+      abs(Sweetness - 10) +
+      abs(Flavor - 8) +
+      abs(Acidity - 8) +
+      abs(Body - 8) +
+      abs(Balance - 8) +
+      abs(Aftertaste - 8)]
+setorder(m_r, taste_distance)
+m_r %>% head(2)
+```
+
+Marcio wanted to take Subu on a trip in Brazil, so find the Brazillian coffees
+which are similar to Subu's taste. As they are going on a tour they can have 10
+coffees?
+```{r Subu Brazil}
+subu_brazil <- copy(country_clusters[Country.of.Origin == "Brazil"])
+subu_brazil[, taste_distance :=
+              abs(Sweetness - 10) +
+              Flavor
+            ]
+setorder(subu_brazil, taste_distance)
+subu_brazil %>% head(10)
+```
+
+Subu India
+```{r Subu India}
+subu_india <- copy(country_clusters[Country.of.Origin == "India"])
+subu_india[, taste_distance :=
+             abs(Sweetness - 10) +
+             Flavor]
+setorder(subu_india, taste_distance)
+subu_india %>% head(1)
+```
+
+James
+```{r James}
+james <- copy(country_clusters[Country.of.Origin == "United States (Hawaii)"])
+james[, taste_distance :=
+        abs(Sweetness - 10) +
+        Flavor +
+        Aroma]
+setorder(james, taste_distance)
+james %>% head(1)
+```
+

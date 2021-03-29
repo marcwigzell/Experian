@@ -1,0 +1,8 @@
+name|type|data|command|depend|seed|path|time|size|bytes|format|iteration|parent|children|seconds|warnings|error
+arabica_data_file|stem|cb2d75be44e38aba|d4f05ebd57aa1b42|ef46db3751d8e999|896118676|coffee-quality-database/data/arabica_data_cleaned.csv|1a7a98404953799d|0bce543f196be592|651008|file|vector|||0.33||
+arabica_data|stem|67e95c01e42df386|b6139d9ec4b312ac|3ede96e7404df9e3|658081970|_targets/objects/arabica_data|936893138239d54c|41469f0ad43c14f6|387264|fst_dt|vector|||0.02||
+robust_data|stem|7ccd9c65f0a209b3|68b901153dc24062|b466b832ffaab922|1580734008|_targets/objects/robust_data|da11f7fd01df5ac5|ec5b6b9c0e87bb80|15509|fst_dt|vector|||0||
+packages|object|5aee3b5509f1bb6e||||||||||||||
+clean_data_merge|function|0663d9416bf85144||||||||||||||
+robusta_data_file|stem|e3d091802ac42ce7|836be171e35851a8|ef46db3751d8e999|282088638|coffee-quality-database/data/robusta_data_cleaned.csv|8893d7907b603e3f|c37d746487e20248|13950|file|vector|||0||
+robusta_data|stem|7ccd9c65f0a209b3|68b901153dc24062|b466b832ffaab922|-1765678471|_targets/objects/robusta_data|a5e1bad023d785dd|ec5b6b9c0e87bb80|15509|fst_dt|vector|||0.29||

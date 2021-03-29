@@ -1,0 +1,55 @@
+---
+title: "EDA"
+---
+
+The data is only from 2018, however I am not confident enough in web-scrapping
+to grab new data so I will use the 2018 set.
+
+```{r directory}
+knitr::opts_knit$set(root.dir = getwd())
+```
+
+```{r packages, message=FALSE, warning=FALSE}
+source("packages.R")
+for (i in seq_along(packages))
+  library(packages[i], character.only = T)
+rm(packages)
+```
+
+```{r data}
+arabica_data <- fread("coffee-quality-database/data/arabica_data_cleaned.csv")
+robusta_data <- fread("coffee-quality-database/data/robusta_data_cleaned.csv")
+```
+
+Having a look at the difference between arabica and robusta names
+```{r names}
+list(
+  arabica_robusta = setdiff(names(arabica_data), names(robusta_data)),
+  robust_arabica = setdiff(names(robusta_data), names(arabica_data))
+)
+```
+
+Going to assume the following mapping
+```{r names mapping}
+setnames(
+  robusta_data,
+  old = setdiff(names(robusta_data), names(arabica_data)),
+  new = c(
+    "Aroma",
+    "Acidity",
+    "Sweetness",
+    "Body",
+    "Uniformity"
+  )
+)
+```
+
+Create species column and combine datasets
+```{r species and combine}
+combined_data <- rbind(robusta_data, arabica_data)
+```
+
+Look at summary data
+```{r summary}
+summary(combined_data)
+```
